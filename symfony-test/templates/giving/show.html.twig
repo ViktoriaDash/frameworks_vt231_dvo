@@ -1,0 +1,26 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Giving{% endblock %}
+
+{% block body %}
+    <h1>Giving</h1>
+
+    <table class="table">
+        <tbody>
+            <tr>
+                <th>Id</th>
+                <td>{{ giving.id }}</td>
+            </tr>
+            <tr>
+                <th>GivingDate</th>
+                <td>{{ giving.givingDate ? giving.givingDate|date('Y-m-d H:i:s') : '' }}</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <a href="{{ path('app_giving_index') }}">back to list</a>
+
+    <a href="{{ path('app_giving_edit', {'id': giving.id}) }}">edit</a>
+
+    {{ include('giving/_delete_form.html.twig') }}
+{% endblock %}

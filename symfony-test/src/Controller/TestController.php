@@ -8,6 +8,11 @@ use Symfony\Component\Routing\Attribute\Route;
 
 final class TestController extends AbstractController
 {
+    /**
+     * Тестова сторінка для перевірки працездатності Symfony.
+     * 
+     * @return Response
+     */
     #[Route('/test', name: 'app_test')]
     public function index(): Response
     {
