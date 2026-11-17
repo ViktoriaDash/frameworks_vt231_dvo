@@ -9,29 +9,69 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\Routing\Annotation\Route;
+use Symfony\Component\Routing\Attribute\Route;
 
-#[Route('/api/penalties', name: 'api_penalty_')]
-class PenaltyController extends AbstractController
+final class PenaltyController extends AbstractController
 {
     /**
-     * Отримати всі штрафи
+     * @var EntityManagerInterface
      */
-    #[Route('', name: 'index', methods: ['GET'])]
-    public function index(PenaltyRepository $repository): JsonResponse
+    private EntityManagerInterface $entityManager;
+
+    /**
+     * @var PenaltyRepository
+     */
+    private PenaltyRepository $penaltyRepository;
+
+    /**
+     * Конструктор контролера
+     * 
+     * @param EntityManagerInterface $entityManager
+     * @param PenaltyRepository $penaltyRepository
+     */
+    public function __construct(EntityManagerInterface $entityManager, PenaltyRepository $penaltyRepository)
     {
-        return $this->json($repository->findAll(), Response::HTTP_OK);
+        $this->entityManager = $entityManager;
+        $this->penaltyRepository = $penaltyRepository;
+    }
+
+    /**
+     * Отримати список штрафів з фільтрацією та пагінацією
+     * 
+     * @param Request $request
+     * @return JsonResponse
+     */
+    #[Route('/api/penalties', name: 'app_get_penalties', methods: ['GET'])]
+    public function getPenalties(Request $request): JsonResponse
+    {
+        $allowedParams = ['id', 'reader_name', 'amount', 'reason', 'is_paid'];
+
+        try {
+            $penalties = $this->penaltyRepository->filterAndPaginate($request, $allowedParams);
+        } catch (\InvalidArgumentException $e) {
+            return $this->json(['message' => $e->getMessage()], Response::HTTP_BAD_REQUEST);
+        }
+
+        if (empty($penalties['data']) && empty($penalties)) {
+            return $this->json(['message' => 'No penalties found matching your criteria'], Response::HTTP_NOT_FOUND);
+        }
+
+        return $this->json($penalties, Response::HTTP_OK);
     }
 
     /**
      * Отримати штраф за ID
+     * 
+     * @param string $id
+     * @return JsonResponse
      */
-    #[Route('/{id}', name: 'show', methods: ['GET'])]
-    public function show(int $id, PenaltyRepository $repository): JsonResponse
+    #[Route('/api/penalties/{id}', name: 'app_get_penalty_by_id', methods: ['GET'])]
+    public function getPenaltyById(string $id): JsonResponse
     {
-        $penalty = $repository->find($id);
+        /** @var Penalty|null $penalty */
+        $penalty = $this->entityManager->getRepository(Penalty::class)->findOneBy(['id' => $id]);
 
-        if (!$penalty) {
+        if (empty($penalty)) {
             return $this->json(['message' => 'Penalty not found'], Response::HTTP_NOT_FOUND);
         }
 
@@ -39,15 +79,22 @@ class PenaltyController extends AbstractController
     }
 
     /**
-     * Створити штраф
+     * Створити новий штраф
+     * 
+     * @param Request $request
+     * @return JsonResponse
      */
-    #[Route('', name: 'store', methods: ['POST'])]
-    public function store(Request $request, EntityManagerInterface $entityManager): JsonResponse
+    #[Route('/api/penalties', name: 'app_create_penalty', methods: ['POST'])]
+    public function createPenalty(Request $request): JsonResponse
     {
         $data = json_decode($request->getContent(), true);
 
+        if (empty($data['reader_name'])) {
+            return $this->json(['message' => 'Reader name is required'], Response::HTTP_BAD_REQUEST);
+        }
+
         $penalty = new Penalty();
-        $penalty->setReaderName($data['reader_name'] ?? '');
+        $penalty->setReaderName($data['reader_name']);
         $penalty->setAmount($data['amount'] ?? 0);
         $penalty->setReason($data['reason'] ?? '');
         
@@ -55,21 +102,26 @@ class PenaltyController extends AbstractController
             $penalty->setIsPaid((bool) $data['is_paid']);
         }
 
-        $entityManager->persist($penalty);
-        $entityManager->flush();
+        $this->entityManager->persist($penalty);
+        $this->entityManager->flush();
 
         return $this->json($penalty, Response::HTTP_CREATED);
     }
 
     /**
-     * Оновити штраф
+     * Оновити дані штрафу
+     * 
+     * @param string $id
+     * @param Request $request
+     * @return JsonResponse
      */
-    #[Route('/{id}', name: 'update', methods: ['PUT', 'PATCH'])]
-    public function update(int $id, Request $request, PenaltyRepository $repository, EntityManagerInterface $entityManager): JsonResponse
+    #[Route('/api/penalties/{id}', name: 'app_update_penalty', methods: ['PATCH', 'PUT'])]
+    public function updatePenalty(string $id, Request $request): JsonResponse
     {
-        $penalty = $repository->find($id);
+        /** @var Penalty|null $penalty */
+        $penalty = $this->entityManager->getRepository(Penalty::class)->findOneBy(['id' => $id]);
 
-        if (!$penalty) {
+        if (empty($penalty)) {
             return $this->json(['message' => 'Penalty not found'], Response::HTTP_NOT_FOUND);
         }
 
@@ -88,26 +140,30 @@ class PenaltyController extends AbstractController
             $penalty->setIsPaid((bool) $data['is_paid']);
         }
 
-        $entityManager->flush();
+        $this->entityManager->flush();
 
         return $this->json($penalty, Response::HTTP_OK);
     }
 
     /**
      * Видалити штраф
+     * 
+     * @param string $id
+     * @return JsonResponse
      */
-    #[Route('/{id}', name: 'delete', methods: ['DELETE'])]
-    public function destroy(int $id, PenaltyRepository $repository, EntityManagerInterface $entityManager): JsonResponse
+    #[Route('/api/penalties/{id}', name: 'app_delete_penalty', methods: ['DELETE'])]
+    public function deletePenalty(string $id): JsonResponse
     {
-        $penalty = $repository->find($id);
+        /** @var Penalty|null $penalty */
+        $penalty = $this->entityManager->getRepository(Penalty::class)->findOneBy(['id' => $id]);
 
-        if (!$penalty) {
+        if (empty($penalty)) {
             return $this->json(['message' => 'Penalty not found'], Response::HTTP_NOT_FOUND);
         }
 
-        $entityManager->remove($penalty);
-        $entityManager->flush();
+        $this->entityManager->remove($penalty);
+        $this->entityManager->flush();
 
-        return $this->json(['message' => 'Penalty deleted successfully'], Response::HTTP_NO_CONTENT);
+        return $this->json(['message' => 'Penalty deleted successfully'], Response::HTTP_OK);
     }
 }

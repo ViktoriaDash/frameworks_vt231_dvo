@@ -11,54 +11,108 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
 
-#[Route('/api/publishers', name: 'api_publisher_')]
-class PublisherController extends AbstractController
+final class PublisherController extends AbstractController
 {
-    #[Route('', name: 'index', methods: ['GET'])]
-    public function index(PublisherRepository $repository): JsonResponse
+    /**
+     * @var EntityManagerInterface
+     */
+    private EntityManagerInterface $entityManager;
+
+    /**
+     * @var PublisherRepository
+     */
+    private PublisherRepository $publisherRepository;
+
+    public function __construct(EntityManagerInterface $entityManager, PublisherRepository $publisherRepository)
     {
-        return $this->json($repository->findAll(), Response::HTTP_OK);
+        $this->entityManager = $entityManager;
+        $this->publisherRepository = $publisherRepository;
     }
 
-    #[Route('/{id}', name: 'show', methods: ['GET'])]
-    public function show(int $id, PublisherRepository $repository): JsonResponse
+    /**
+     * Отримати список видавництв з фільтрацією та пагінацією
+     * @param Request $request
+     * @return JsonResponse
+     */
+    #[Route('/api/publishers', name: 'app_get_publishers', methods: ['GET'])]
+    public function getPublishers(Request $request): JsonResponse
     {
-        $publisher = $repository->find($id);
+        $allowedParams = ['id', 'name', 'address', 'website'];
 
-        if (!$publisher) {
+        // dd('Тест: запит успішно дійшов до контролера!'); // розкоментуй, якщо запит у Postman зависає
+
+        try {
+            $publishers = $this->publisherRepository->filterAndPaginate($request, $allowedParams);
+        } catch (\InvalidArgumentException $e) {
+            return $this->json(['message' => $e->getMessage()], Response::HTTP_BAD_REQUEST);
+        }
+
+        if (empty($publishers['data']) && empty($publishers)) {
+            return $this->json(['message' => 'No publishers found matching your criteria'], Response::HTTP_NOT_FOUND);
+        }
+
+        return $this->json($publishers, Response::HTTP_OK);
+    }
+
+    /**
+     * Отримати видавництво за ID
+     * @param string $id
+     * @return JsonResponse
+     */
+    #[Route('/api/publishers/{id}', name: 'app_get_publisher_by_id', methods: ['GET'])]
+    public function getPublisherById(string $id): JsonResponse
+    {
+        /** @var Publisher|null $publisher */
+        $publisher = $this->entityManager->getRepository(Publisher::class)->findOneBy(['id' => $id]);
+
+        if (empty($publisher)) {
             return $this->json(['message' => 'Publisher not found'], Response::HTTP_NOT_FOUND);
         }
 
         return $this->json($publisher, Response::HTTP_OK);
     }
 
-    #[Route('', name: 'store', methods: ['POST'])]
-    public function store(Request $request, EntityManagerInterface $entityManager): JsonResponse
+    /**
+     * Створити нове видавництво
+     * @param Request $request
+     * @return JsonResponse
+     */
+    #[Route('/api/publishers', name: 'app_create_publisher', methods: ['POST'])]
+    public function createPublisher(Request $request): JsonResponse
     {
         $data = json_decode($request->getContent(), true);
 
-        $publisher = new Publisher();
-        $publisher->setName($data['name'] ?? '');
-        
-        if (isset($data['address'])) {
-            $publisher->setAddress($data['address']);
+        if (empty($data['name'])) {
+            return $this->json(['message' => 'Name is required'], Response::HTTP_BAD_REQUEST);
         }
+
+        $publisher = new Publisher();
+        $publisher->setName($data['name']);
+        $publisher->setAddress($data['address'] ?? '');
+        
         if (isset($data['website'])) {
             $publisher->setWebsite($data['website']);
         }
 
-        $entityManager->persist($publisher);
-        $entityManager->flush();
+        $this->entityManager->persist($publisher);
+        $this->entityManager->flush();
 
         return $this->json($publisher, Response::HTTP_CREATED);
     }
 
-    #[Route('/{id}', name: 'update', methods: ['PUT', 'PATCH'])]
-    public function update(int $id, Request $request, PublisherRepository $repository, EntityManagerInterface $entityManager): JsonResponse
+    /**
+     * Оновити дані видавництва
+     * @param string $id
+     * @param Request $request
+     * @return JsonResponse
+     */
+    #[Route('/api/publishers/{id}', name: 'app_update_publisher', methods: ['PATCH', 'PUT'])]
+    public function updatePublisher(string $id, Request $request): JsonResponse
     {
-        $publisher = $repository->find($id);
+        /** @var Publisher|null $publisher */
+        $publisher = $this->entityManager->getRepository(Publisher::class)->findOneBy(['id' => $id]);
 
-        if (!$publisher) {
+        if (empty($publisher)) {
             return $this->json(['message' => 'Publisher not found'], Response::HTTP_NOT_FOUND);
         }
 
@@ -67,30 +121,36 @@ class PublisherController extends AbstractController
         if (isset($data['name'])) {
             $publisher->setName($data['name']);
         }
-        if (array_key_exists('address', $data)) {
+        if (isset($data['address'])) {
             $publisher->setAddress($data['address']);
         }
         if (array_key_exists('website', $data)) {
             $publisher->setWebsite($data['website']);
         }
 
-        $entityManager->flush();
+        $this->entityManager->flush();
 
         return $this->json($publisher, Response::HTTP_OK);
     }
 
-    #[Route('/{id}', name: 'delete', methods: ['DELETE'])]
-    public function destroy(int $id, PublisherRepository $repository, EntityManagerInterface $entityManager): JsonResponse
+    /**
+     * Видалити видавництво
+     * @param string $id
+     * @return JsonResponse
+     */
+    #[Route('/api/publishers/{id}', name: 'app_delete_publisher', methods: ['DELETE'])]
+    public function deletePublisher(string $id): JsonResponse
     {
-        $publisher = $repository->find($id);
+        /** @var Publisher|null $publisher */
+        $publisher = $this->entityManager->getRepository(Publisher::class)->findOneBy(['id' => $id]);
 
-        if (!$publisher) {
+        if (empty($publisher)) {
             return $this->json(['message' => 'Publisher not found'], Response::HTTP_NOT_FOUND);
         }
 
-        $entityManager->remove($publisher);
-        $entityManager->flush();
+        $this->entityManager->remove($publisher);
+        $this->entityManager->flush();
 
-        return $this->json(['message' => 'Publisher deleted successfully'], Response::HTTP_NO_CONTENT);
+        return $this->json(['message' => 'Publisher deleted successfully'], Response::HTTP_OK);
     }
 }

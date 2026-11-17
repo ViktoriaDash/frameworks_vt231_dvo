@@ -3,41 +3,18 @@
 namespace App\Repository;
 
 use App\Entity\Review;
-use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 
 /**
- * @extends ServiceEntityRepository<Review>
+ * @extends BaseRepository<Review>
  */
-class ReviewRepository extends ServiceEntityRepository
+class ReviewRepository extends BaseRepository
 {
+    // Поля для пошуку за частковим збігом (LIKE)
+    public const LIKE_FIELDS = ['reader_name', 'content'];
+
     public function __construct(ManagerRegistry $registry)
     {
         parent::__construct($registry, Review::class);
     }
-
-    //    /**
-    //     * @return Review[] Returns an array of Review objects
-    //     */
-    //    public function findByExampleField($value): array
-    //    {
-    //        return $this->createQueryBuilder('r')
-    //            ->andWhere('r.exampleField = :val')
-    //            ->setParameter('val', $value)
-    //            ->orderBy('r.id', 'ASC')
-    //            ->setMaxResults(10)
-    //            ->getQuery()
-    //            ->getResult()
-    //        ;
-    //    }
-
-    //    public function findOneBySomeField($value): ?Review
-    //    {
-    //        return $this->createQueryBuilder('r')
-    //            ->andWhere('r.exampleField = :val')
-    //            ->setParameter('val', $value)
-    //            ->getQuery()
-    //            ->getOneOrNullResult()
-    //        ;
-    //    }
 }

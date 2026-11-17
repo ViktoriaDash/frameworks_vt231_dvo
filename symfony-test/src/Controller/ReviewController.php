@@ -15,16 +15,36 @@ use Symfony\Component\Routing\Annotation\Route;
 class ReviewController extends AbstractController
 {
     /**
-     * Отримати всі відгуки
+     * Отримати список відгуків з фільтрацією та пагінацією
+     * 
+     * @param Request $request
+     * @param ReviewRepository $repository
+     * @return JsonResponse
      */
     #[Route('', name: 'index', methods: ['GET'])]
-    public function index(ReviewRepository $repository): JsonResponse
+    public function index(Request $request, ReviewRepository $repository): JsonResponse
     {
-        return $this->json($repository->findAll(), Response::HTTP_OK);
+        $allowedParams = ['id', 'reader_name', 'content', 'rating'];
+
+        try {
+            $reviews = $repository->filterAndPaginate($request, $allowedParams);
+        } catch (\InvalidArgumentException $e) {
+            return $this->json(['error' => $e->getMessage()], Response::HTTP_BAD_REQUEST);
+        }
+
+        if (empty($reviews['data'])) {
+            return $this->json(['message' => 'Відгуки не знайдено'], Response::HTTP_NOT_FOUND);
+        }
+
+        return $this->json($reviews, Response::HTTP_OK);
     }
 
     /**
      * Отримати відгук за ID
+     * 
+     * @param int $id
+     * @param ReviewRepository $repository
+     * @return JsonResponse
      */
     #[Route('/{id}', name: 'show', methods: ['GET'])]
     public function show(int $id, ReviewRepository $repository): JsonResponse
@@ -32,14 +52,18 @@ class ReviewController extends AbstractController
         $review = $repository->find($id);
 
         if (!$review) {
-            return $this->json(['message' => 'Review not found'], Response::HTTP_NOT_FOUND);
+            return $this->json(['message' => 'Відгук не знайдено'], Response::HTTP_NOT_FOUND);
         }
 
         return $this->json($review, Response::HTTP_OK);
     }
 
     /**
-     * Створити відгук
+     * Створити новий відгук
+     * 
+     * @param Request $request
+     * @param EntityManagerInterface $entityManager
+     * @return JsonResponse
      */
     #[Route('', name: 'store', methods: ['POST'])]
     public function store(Request $request, EntityManagerInterface $entityManager): JsonResponse
@@ -58,7 +82,13 @@ class ReviewController extends AbstractController
     }
 
     /**
-     * Оновити відгук
+     * Оновити дані відгуку
+     * 
+     * @param int $id
+     * @param Request $request
+     * @param ReviewRepository $repository
+     * @param EntityManagerInterface $entityManager
+     * @return JsonResponse
      */
     #[Route('/{id}', name: 'update', methods: ['PUT', 'PATCH'])]
     public function update(int $id, Request $request, ReviewRepository $repository, EntityManagerInterface $entityManager): JsonResponse
@@ -66,7 +96,7 @@ class ReviewController extends AbstractController
         $review = $repository->find($id);
 
         if (!$review) {
-            return $this->json(['message' => 'Review not found'], Response::HTTP_NOT_FOUND);
+            return $this->json(['message' => 'Відгук не знайдено'], Response::HTTP_NOT_FOUND);
         }
 
         $data = json_decode($request->getContent(), true);
@@ -88,6 +118,11 @@ class ReviewController extends AbstractController
 
     /**
      * Видалити відгук
+     * 
+     * @param int $id
+     * @param ReviewRepository $repository
+     * @param EntityManagerInterface $entityManager
+     * @return JsonResponse
      */
     #[Route('/{id}', name: 'delete', methods: ['DELETE'])]
     public function destroy(int $id, ReviewRepository $repository, EntityManagerInterface $entityManager): JsonResponse
@@ -95,12 +130,12 @@ class ReviewController extends AbstractController
         $review = $repository->find($id);
 
         if (!$review) {
-            return $this->json(['message' => 'Review not found'], Response::HTTP_NOT_FOUND);
+            return $this->json(['message' => 'Відгук не знайдено'], Response::HTTP_NOT_FOUND);
         }
 
         $entityManager->remove($review);
         $entityManager->flush();
 
-        return $this->json(['message' => 'Review deleted successfully'], Response::HTTP_NO_CONTENT);
+        return $this->json(['message' => 'Відгук видалено'], Response::HTTP_NO_CONTENT);
     }
 }

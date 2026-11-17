@@ -15,16 +15,36 @@ use Symfony\Component\Routing\Annotation\Route;
 class EmployeeController extends AbstractController
 {
     /**
-     * Отримати всіх працівників
+     * Отримати список працівників з фільтрацією та пагінацією
+     * 
+     * @param Request $request
+     * @param EmployeeRepository $repository
+     * @return JsonResponse
      */
     #[Route('', name: 'index', methods: ['GET'])]
-    public function index(EmployeeRepository $repository): JsonResponse
+    public function index(Request $request, EmployeeRepository $repository): JsonResponse
     {
-        return $this->json($repository->findAll(), Response::HTTP_OK);
+        $allowedParams = ['id', 'name', 'position', 'phone'];
+
+        try {
+            $employees = $repository->filterAndPaginate($request, $allowedParams);
+        } catch (\InvalidArgumentException $e) {
+            return $this->json(['error' => $e->getMessage()], Response::HTTP_BAD_REQUEST);
+        }
+
+        if (empty($employees['data'])) {
+            return $this->json(['message' => 'Працівників не знайдено'], Response::HTTP_NOT_FOUND);
+        }
+
+        return $this->json($employees, Response::HTTP_OK);
     }
 
     /**
      * Отримати працівника за ID
+     * 
+     * @param int $id
+     * @param EmployeeRepository $repository
+     * @return JsonResponse
      */
     #[Route('/{id}', name: 'show', methods: ['GET'])]
     public function show(int $id, EmployeeRepository $repository): JsonResponse
@@ -32,14 +52,18 @@ class EmployeeController extends AbstractController
         $employee = $repository->find($id);
 
         if (!$employee) {
-            return $this->json(['message' => 'Employee not found'], Response::HTTP_NOT_FOUND);
+            return $this->json(['message' => 'Працівника не знайдено'], Response::HTTP_NOT_FOUND);
         }
 
         return $this->json($employee, Response::HTTP_OK);
     }
 
     /**
-     * Створити працівника
+     * Створити нового працівника
+     * 
+     * @param Request $request
+     * @param EntityManagerInterface $entityManager
+     * @return JsonResponse
      */
     #[Route('', name: 'store', methods: ['POST'])]
     public function store(Request $request, EntityManagerInterface $entityManager): JsonResponse
@@ -61,7 +85,13 @@ class EmployeeController extends AbstractController
     }
 
     /**
-     * Оновити працівника
+     * Оновити дані працівника
+     * 
+     * @param int $id
+     * @param Request $request
+     * @param EmployeeRepository $repository
+     * @param EntityManagerInterface $entityManager
+     * @return JsonResponse
      */
     #[Route('/{id}', name: 'update', methods: ['PUT', 'PATCH'])]
     public function update(int $id, Request $request, EmployeeRepository $repository, EntityManagerInterface $entityManager): JsonResponse
@@ -69,7 +99,7 @@ class EmployeeController extends AbstractController
         $employee = $repository->find($id);
 
         if (!$employee) {
-            return $this->json(['message' => 'Employee not found'], Response::HTTP_NOT_FOUND);
+            return $this->json(['message' => 'Працівника не знайдено'], Response::HTTP_NOT_FOUND);
         }
 
         $data = json_decode($request->getContent(), true);
@@ -91,6 +121,11 @@ class EmployeeController extends AbstractController
 
     /**
      * Видалити працівника
+     * 
+     * @param int $id
+     * @param EmployeeRepository $repository
+     * @param EntityManagerInterface $entityManager
+     * @return JsonResponse
      */
     #[Route('/{id}', name: 'delete', methods: ['DELETE'])]
     public function destroy(int $id, EmployeeRepository $repository, EntityManagerInterface $entityManager): JsonResponse
@@ -98,12 +133,12 @@ class EmployeeController extends AbstractController
         $employee = $repository->find($id);
 
         if (!$employee) {
-            return $this->json(['message' => 'Employee not found'], Response::HTTP_NOT_FOUND);
+            return $this->json(['message' => 'Працівника не знайдено'], Response::HTTP_NOT_FOUND);
         }
 
         $entityManager->remove($employee);
         $entityManager->flush();
 
-        return $this->json(['message' => 'Employee deleted successfully'], Response::HTTP_NO_CONTENT);
+        return $this->json(['message' => 'Працівника видалено'], Response::HTTP_NO_CONTENT);
     }
 }

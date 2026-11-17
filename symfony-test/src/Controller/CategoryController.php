@@ -15,18 +15,36 @@ use Symfony\Component\Routing\Annotation\Route;
 class CategoryController extends AbstractController
 {
     /**
-     * Отримати всі категорії
+     * Отримати список категорій з фільтрацією та пагінацією
+     * 
+     * @param Request $request
+     * @param CategoryRepository $repository
+     * @return JsonResponse
      */
     #[Route('', name: 'index', methods: ['GET'])]
-    public function index(CategoryRepository $repository): JsonResponse
+    public function index(Request $request, CategoryRepository $repository): JsonResponse
     {
-        $categories = $repository->findAll();
-        
+        $allowedParams = ['id', 'name', 'description'];
+
+        try {
+            $categories = $repository->filterAndPaginate($request, $allowedParams);
+        } catch (\InvalidArgumentException $e) {
+            return $this->json(['error' => $e->getMessage()], Response::HTTP_BAD_REQUEST);
+        }
+
+        if (empty($categories['data'])) {
+            return $this->json(['message' => 'Категорії не знайдені'], Response::HTTP_NOT_FOUND);
+        }
+
         return $this->json($categories, Response::HTTP_OK);
     }
 
     /**
      * Отримати категорію за ID
+     * 
+     * @param int $id
+     * @param CategoryRepository $repository
+     * @return JsonResponse
      */
     #[Route('/{id}', name: 'show', methods: ['GET'])]
     public function show(int $id, CategoryRepository $repository): JsonResponse
@@ -34,14 +52,18 @@ class CategoryController extends AbstractController
         $category = $repository->find($id);
 
         if (!$category) {
-            return $this->json(['message' => 'Category not found'], Response::HTTP_NOT_FOUND);
+            return $this->json(['message' => 'Категорію не знайдено'], Response::HTTP_NOT_FOUND);
         }
 
         return $this->json($category, Response::HTTP_OK);
     }
 
     /**
-     * Створити категорію
+     * Створити нову категорію
+     * 
+     * @param Request $request
+     * @param EntityManagerInterface $entityManager
+     * @return JsonResponse
      */
     #[Route('', name: 'store', methods: ['POST'])]
     public function store(Request $request, EntityManagerInterface $entityManager): JsonResponse
@@ -62,7 +84,13 @@ class CategoryController extends AbstractController
     }
 
     /**
-     * Оновити категорію
+     * Оновити дані категорії
+     * 
+     * @param int $id
+     * @param Request $request
+     * @param CategoryRepository $repository
+     * @param EntityManagerInterface $entityManager
+     * @return JsonResponse
      */
     #[Route('/{id}', name: 'update', methods: ['PUT', 'PATCH'])]
     public function update(int $id, Request $request, CategoryRepository $repository, EntityManagerInterface $entityManager): JsonResponse
@@ -70,7 +98,7 @@ class CategoryController extends AbstractController
         $category = $repository->find($id);
 
         if (!$category) {
-            return $this->json(['message' => 'Category not found'], Response::HTTP_NOT_FOUND);
+            return $this->json(['message' => 'Категорію не знайдено'], Response::HTTP_NOT_FOUND);
         }
 
         $data = json_decode($request->getContent(), true);
@@ -89,6 +117,11 @@ class CategoryController extends AbstractController
 
     /**
      * Видалити категорію
+     * 
+     * @param int $id
+     * @param CategoryRepository $repository
+     * @param EntityManagerInterface $entityManager
+     * @return JsonResponse
      */
     #[Route('/{id}', name: 'delete', methods: ['DELETE'])]
     public function destroy(int $id, CategoryRepository $repository, EntityManagerInterface $entityManager): JsonResponse
@@ -96,12 +129,12 @@ class CategoryController extends AbstractController
         $category = $repository->find($id);
 
         if (!$category) {
-            return $this->json(['message' => 'Category not found'], Response::HTTP_NOT_FOUND);
+            return $this->json(['message' => 'Категорію не знайдено'], Response::HTTP_NOT_FOUND);
         }
 
         $entityManager->remove($category);
         $entityManager->flush();
 
-        return $this->json(['message' => 'Category deleted successfully'], Response::HTTP_NO_CONTENT);
+        return $this->json(['message' => 'Категорію видалено'], Response::HTTP_NO_CONTENT);
     }
 }

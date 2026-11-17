@@ -3,41 +3,18 @@
 namespace App\Repository;
 
 use App\Entity\Penalty;
-use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 
 /**
- * @extends ServiceEntityRepository<Penalty>
+ * @extends BaseRepository<Penalty>
  */
-class PenaltyRepository extends ServiceEntityRepository
+class PenaltyRepository extends BaseRepository
 {
+    // Поля для пошуку за частковим збігом (LIKE)
+    public const LIKE_FIELDS = ['reader_name', 'reason'];
+
     public function __construct(ManagerRegistry $registry)
     {
         parent::__construct($registry, Penalty::class);
     }
-
-    //    /**
-    //     * @return Penalty[] Returns an array of Penalty objects
-    //     */
-    //    public function findByExampleField($value): array
-    //    {
-    //        return $this->createQueryBuilder('p')
-    //            ->andWhere('p.exampleField = :val')
-    //            ->setParameter('val', $value)
-    //            ->orderBy('p.id', 'ASC')
-    //            ->setMaxResults(10)
-    //            ->getQuery()
-    //            ->getResult()
-    //        ;
-    //    }
-
-    //    public function findOneBySomeField($value): ?Penalty
-    //    {
-    //        return $this->createQueryBuilder('p')
-    //            ->andWhere('p.exampleField = :val')
-    //            ->setParameter('val', $value)
-    //            ->getQuery()
-    //            ->getOneOrNullResult()
-    //        ;
-    //    }
 }
